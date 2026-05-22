@@ -1,84 +1,65 @@
-require('dotenv').config();
+// require('dotenv').config();
+
+// const express = require('express');
+// const bodyParser = require('body-parser');
+// const cors = require('cors');
+
+// require('./db');
+
+// const authRoutes = require('./routes/auth');
+// const commentRoutes = require('./routes/comments');
+// const userRoutes = require('./routes/users');
+// const adminRoutes = require('./routes/admin');
+
+// const app = express();
+
+// app.use(cors());
+// app.use(bodyParser.json());
+
+// app.use('/api', authRoutes);
+// app.use('/api', commentRoutes);
+// app.use('/api', userRoutes);
+// app.use('/api', adminRoutes);
+
+// app.get('/', (req, res) => {
+//   res.send('Secure Coding CTF Platform');
+// });
+
+// const PORT = 5000;
+
+// app.listen(PORT, () => {
+//   console.log(`Server running on port ${PORT}`);
+// });
+
+ require('dotenv').config();
 
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 
-require('./db');
+  require('./db');
 
-const authRoutes = require('./routes/auth');
-const commentRoutes = require('./routes/comments');
-const userRoutes = require('./routes/users');
-const adminRoutes = require('./routes/admin');
+  const authRoutes = require('./routes/auth');
+  const commentRoutes = require('./routes/comments');
+  const userRoutes = require('./routes/users');
+  const adminRoutes = require('./routes/admin');
 
 const app = express();
 
-/**
- * 🔐 Security headers (hardened)
- */
-app.use(
-  helmet({
-    contentSecurityPolicy: true,
-    crossOriginEmbedderPolicy: true,
-    crossOriginResourcePolicy: { policy: "same-site" }
-  })
-);
+app.use(cors());
+app.use(bodyParser.json());
 
-/**
- * 🚦 Global rate limit (baseline protection)
- */
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-app.use(globalLimiter);
-
-/**
- * 🔐 CORS hardened
- */
-app.use(cors({
-  origin: process.env.CORS_ORIGIN,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE']
-}));
-
-/**
- * 🔐 Body size protection
- */
-app.use(bodyParser.json({ limit: '10kb' }));
-
-/**
- * Routes
- */
 app.use('/api', authRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', userRoutes);
 app.use('/api', adminRoutes);
 
-/**
- * Health check
- */
 app.get('/', (req, res) => {
-  res.status(200).send('Secure Coding CTF Platform');
+  res.send('Secure Coding CTF Platform');
 });
 
-/**
- * 🔐 Safe error handler (no internal leakage)
- */
-app.use((err, req, res, next) => {
-  // avoid leaking internal error details
-  return res.status(500).json({
-    error: 'Internal server error'
+const PORT = 5000;
+
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
-});
-
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
