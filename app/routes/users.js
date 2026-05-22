@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+require('dotenv').config();
 
 router.get('/user/:id', (req, res) => {
   const id = req.params.id;

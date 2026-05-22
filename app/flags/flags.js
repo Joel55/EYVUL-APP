@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 module.exports = {
 
   SQLI_FLAG: process.env.SQLI_FLAG,

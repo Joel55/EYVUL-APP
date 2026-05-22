@@ -4,6 +4,7 @@ const db = require('../db');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const Joi = require('joi');
+require('dotenv').config();
 
 const SECRET = process.env.JWT_SECRET || 'supersecret';
 

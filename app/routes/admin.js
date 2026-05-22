@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const Joi = require('joi');
 const router = express.Router();
+require('dotenv').config();
 
 const users = [];
 
