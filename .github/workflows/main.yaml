@@ -3,7 +3,7 @@ name: EY Pipeline
 on:
   push:
     branches:
-      - main
+      - EY-CTFGROUP-03
 
 jobs:
   semgrep:
