@@ -24,6 +24,8 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    
+
     const token = jwt.sign(
       {
         id: row.id,
