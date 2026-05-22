@@ -1,10 +1,36 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 
 const db = new sqlite3.Database('./ctf.db');
 
-db.serialize(async () => {
+function seedUser(username, password, role, email) {
+  const hasAnyValue = username || password || email;
+  if (!hasAnyValue) return;
+  if (!username || !password || !email) throw new Error(`${role.toUpperCase()} seed user requires username, password, and email`);
+  if (password.length < 12) throw new Error(`${role.toUpperCase()} seed password must be at least 12 characters`);
+
+  db.get(`SELECT id FROM users WHERE username = ?`, [username], async (err, row) => {
+    if (err) {
+      console.error('DB error:', err);
+      return;
+    }
+
+    if (row) return;
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    db.run(
+      `INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)`,
+      [username, hashedPassword, role, email],
+      (err) => {
+        if (err) console.error('Error inserting user:', err);
+      }
+    );
+  });
+}
+
+db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -15,28 +41,8 @@ db.serialize(async () => {
     )
   `);
 
-  db.get(`SELECT * FROM users WHERE username = ?`, ['admin'], async (err, row) => {
-    if (err) {
-      console.error('DB error:', err);
-      return;
-    }
-
-    if (!row) {
-      // hash passwords before inserting
-      const adminPassword = await bcrypt.hash('admin123', 12);
-      const userPassword = await bcrypt.hash('password123', 12);
-
-      db.run(`
-        INSERT INTO users (username, password, role, email)
-        VALUES
-        (?, ?, 'admin', ?),
-        (?, ?, 'user', ?)
-      `, ['admin', adminPassword, 'admin@corp.local', 'user1', userPassword, 'user1@corp.local'], (err) => {
-        if (err) console.error('Error inserting users:', err);
-        else console.log('Default users created.');
-      });
-    }
-  });
+  seedUser(process.env.SEED_ADMIN_USERNAME, process.env.SEED_ADMIN_PASSWORD, 'admin', process.env.SEED_ADMIN_EMAIL);
+  seedUser(process.env.SEED_USER_USERNAME, process.env.SEED_USER_PASSWORD, 'user', process.env.SEED_USER_EMAIL);
 });
 
 module.exports = db;
