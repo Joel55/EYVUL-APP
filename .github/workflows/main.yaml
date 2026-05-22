@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - EY-CTFGROUP-02
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   semgrep:
@@ -25,4 +29,4 @@ jobs:
         run: python3 -m pip install semgrep
 
       - name: Run Semgrep Scan
-        run: semgrep --config auto --error || true
+        run: semgrep --config auto --error
