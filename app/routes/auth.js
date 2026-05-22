@@ -28,29 +28,34 @@ router.post('/login', authLimiter, (req, res) => {
       return res.status(500).json({ error: 'Internal server error' });
     }
 
-    const hashToCompare = row ? row.password : DUMMY_HASH;
-    const match = await bcrypt.compare(password, hashToCompare);
+    try {
+      const hashToCompare = row ? row.password : DUMMY_HASH;
+      const match = await bcrypt.compare(password, hashToCompare);
 
-    if (!row || !match) {
-      audit('auth.login.failure', {
-        username,
-        reason: !row ? 'unknown_user' : 'bad_password'
+      if (!row || !match) {
+        audit('auth.login.failure', {
+          username,
+          reason: !row ? 'unknown_user' : 'bad_password'
+        });
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      const token = jwt.sign(
+        { id: row.id, role: row.role },
+        jwtSecret,
+        { expiresIn: '15m' }
+      );
+
+      audit('auth.login.success', { userId: row.id, role: row.role });
+
+      res.json({
+        message: `Welcome ${row.username}`,
+        token
       });
-      return res.status(401).json({ message: 'Invalid credentials' });
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-
-    const token = jwt.sign(
-      { id: row.id, role: row.role },
-      jwtSecret,
-      { expiresIn: '15m' }
-    );
-
-    audit('auth.login.success', { userId: row.id, role: row.role });
-
-    res.json({
-      message: `Welcome ${row.username}`,
-      token
-    });
   });
 });
 

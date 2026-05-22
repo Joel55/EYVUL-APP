@@ -1,4 +1,9 @@
 require('dotenv').config({ quiet: true });
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
