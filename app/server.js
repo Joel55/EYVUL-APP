@@ -12,6 +12,9 @@ const authRoutes = require('./routes/auth');
 const commentRoutes = require('./routes/comments');
 const userRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const csrf = require('csurf');
 
 const app = express();
 
@@ -52,6 +55,25 @@ app.use(cors({
  */
 app.use(bodyParser.json({ limit: '10kb' }));
 
+app.use(cookieParser());
+
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      name: 'ey-group3-cookie',
+      
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      domain: 'ey-group3.ctf',
+      expires: 60 * 60 * 1000, // 1 hour
+      path: '/ctf-cookie'
+    }
+  })
+);
 /**
  * Routes
  */

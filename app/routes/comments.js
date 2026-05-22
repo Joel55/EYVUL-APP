@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const escapeHtml = require('escape-html');
 
 /**
  * 🚦 Rate limit to prevent spam / abuse
@@ -12,9 +11,7 @@ const commentLimiter = rateLimit({
   message: { error: 'Too many comments, slow down' }
 });
 
-/**
- * In-memory store (CTF-safe)
- */
+
 const comments = [];
 
 // FIXED XSS + hardened version
@@ -29,19 +26,10 @@ router.post('/comment', commentLimiter, (req, res) => {
     return res.status(400).send('Invalid comment');
   }
 
-  // 🔐 prevent DoS via huge payloads
-  if (comment.length > 500) {
-    return res.status(400).send('Comment too long');
-  }
-
-  const safeComment = escapeHtml(comment.trim());
-
-  comments.push(safeComment);
-
-  return res.send(`
-    <h1>Comment Added</h1>
-    <div>${safeComment}</div>
-  `);
+  comments.push(comment.trim());
+  return res.render('comment', {
+    comment: comment.trim()
+  });
 });
 
 module.exports = router;

@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcrypt');
 
 const SECRET = process.env.JWT_SECRET;
 
@@ -22,24 +22,6 @@ const loginLimiter = rateLimit({
   legacyHeaders: false
 });
 
-/**
- * 🔐 Hash helper
- */
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
-
-/**
- * 🔐 Constant-time comparison
- */
-function safeCompare(a, b) {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-
-  if (bufA.length !== bufB.length) return false;
-
-  return crypto.timingSafeEqual(bufA, bufB);
-}
 
 router.post('/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;
@@ -54,15 +36,13 @@ router.post('/login', loginLimiter, (req, res) => {
     return res.status(400).json({ error: 'Missing credentials' });
   }
 
-  const hashedPassword = hashPassword(password);
-
   const query = `
     SELECT id, username, role, password
     FROM users
     WHERE username = ?
   `;
 
-  db.get(query, [username.trim().toLowerCase()], (err, row) => {
+  db.get(query, [username.trim().toLowerCase()], async (err, row) => {
     if (err) {
       return res.status(500).json({ error: 'Internal server error' });
     }
@@ -73,7 +53,7 @@ router.post('/login', loginLimiter, (req, res) => {
     }
 
     // 🔐 secure comparison
-    const isValidPassword = safeCompare(row.password, hashedPassword);
+    const isValidPassword = await bcrypt.compare( password ,row.password);
 
     if (!isValidPassword) {
       return res.status(401).json({ message: 'Invalid credentials' });
