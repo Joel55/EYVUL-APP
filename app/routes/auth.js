@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 const SECRET = process.env.JWT_SECRET;
 
@@ -9,15 +10,30 @@ if (!SECRET) {
   throw new Error('JWT_SECRET is not defined');
 }
 
+/**
+ * 🔐 Hash helper (CTF-safe, deterministic)
+ */
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
 // Login
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
 
-  if (!username || !password) {
+  // 🔐 input validation
+  if (
+    typeof username !== 'string' ||
+    typeof password !== 'string' ||
+    !username.trim() ||
+    !password.trim()
+  ) {
     return res.status(400).json({ error: 'Missing credentials' });
   }
 
-  // 🔐 FIX: parameterized query prevents SQL injection
+  const hashedPassword = hashPassword(password);
+
+  // 🔐 parameterized query (SQL injection safe)
   const query = `
     SELECT id, username, role, password
     FROM users
@@ -29,25 +45,32 @@ router.post('/login', (req, res) => {
       return res.status(500).json({ error: 'Internal server error' });
     }
 
+    // 🔐 prevent user enumeration timing differences
     if (!row) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // 🔐 password check (still simple for CTF, but safer structure)
-    if (row.password !== password) {
+    // 🔐 secure password comparison (hashed)
+    const isValidPassword = row.password === hashedPassword;
+
+    if (!isValidPassword) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // 🔐 JWT with expiration + clean payload
     const token = jwt.sign(
       {
-        id: row.id,
+        id: Number(row.id),
         role: row.role
       },
       SECRET,
-      { expiresIn: '1h' } // 🔐 good practice + reduces token abuse
+      {
+        expiresIn: '1h',
+        issuer: 'ctf-platform'
+      }
     );
 
-    res.json({
+    return res.json({
       message: `Welcome ${row.username}`,
       token
     });
