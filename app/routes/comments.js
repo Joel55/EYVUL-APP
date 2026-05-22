@@ -1,10 +1,11 @@
 
  const express = require('express');
   const router = express.Router();
+  const { authenticate } = require('../middleware/auth');
 
   let comments = [];
 
-  router.post('/comment', (req, res) => {
+  router.post('/comment',authenticate, (req, res) => {
     const { comment } = req.body;
 
     if (typeof comment !== 'string' || comment.trim().length === 0) {

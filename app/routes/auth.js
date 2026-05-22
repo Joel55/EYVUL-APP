@@ -5,9 +5,15 @@ const express = require('express');
   const jwt = require('jsonwebtoken');
   const { JWT_SECRET } = require('../middleware/auth');
   const { verifyPassword } = require('../security/passwords');
+  const { createRateLimiter } = require('../middleware/rateLimit');
 
+  const loginRateLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 5,
+    message: 'Too many login attempts. Please try again later.'
+  });
   // Login
-  router.post('/login', (req, res) => {
+  router.post('/login',createRateLimiter, (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
