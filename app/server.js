@@ -1,4 +1,6 @@
 require('dotenv').config();
+const csurf = require('csurf');
+
  
     const express = require('express');
     const bodyParser = require('body-parser');
@@ -32,7 +34,13 @@ require('dotenv').config();
     app.use(securityHeaders);
     app.use(createCsrfProtection());
     app.use(bodyParser.json({ limit: '100kb' }));
- 
+ // CSRF Protection
+const csrfProtection = csurf({
+  cookie: true
+});
+
+app.use(csrfProtection);
+
     app.use('/api', authRoutes);
     app.use('/api', commentRoutes);
     app.use('/api', userRoutes);
