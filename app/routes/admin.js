@@ -1,22 +1,4 @@
-// const express = require('express');
-// const router = express.Router();
 
-// // Admin Auth 
-// router.post('/register', (req, res) => {
-//   ///do not request role from client
-//   const user = {
-//     username: req.body.username,
-//     password: req.body.password,
-//     role: req.body.role
-//   };
-
-//   res.json({
-//     message: 'User created',
-//     username: user.username
-//   });
-// });
-
-// module.exports = router;
 
 const express = require('express');
   const router = express.Router();
