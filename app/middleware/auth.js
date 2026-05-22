@@ -1,46 +1,46 @@
-// const express = require('express');
-// const router = express.Router();
-// const db = require('../db');
-// const jwt = require('jsonwebtoken');
+// const crypto = require('crypto');
+//   const jwt = require('jsonwebtoken');
 
-// const SECRET = 'supersecret';
+//   const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 
-// // Login
-// router.post('/login', (req, res) => {
-//   const { username, password } = req.body;
+//   if (!process.env.JWT_SECRET) {
+//     console.warn('JWT_SECRET is not set. Using an ephemeral development secret.');
+//   }
 
-//   const query = `
-//     SELECT * FROM users
-//     WHERE username = ?
-//     AND password = ?
-//   `;
+//   function authenticate(req, res, next) {
+//     const authHeader = req.get('authorization');
+//     const token = authHeader && authHeader.startsWith('Bearer ')
+//       ? authHeader.slice(7)
+//       : null;
 
-//   db.get(query, [username, password], (err, row) => {
-//     if (err) {
-//       return res.status(500).json({ error: err.message });
+//     if (!token) {
+//       return res.status(401).json({ message: 'Authentication required' });
 //     }
 
-//     if (!row) {
-//       return res.status(401).json({ message: 'Invalid credentials' });
+//     try {
+//       req.user = jwt.verify(token, JWT_SECRET, {
+//         issuer: 'ctf-api',
+//         audience: 'ctf-client'
+//       });
+//       return next();
+//     } catch (err) {
+//       return res.status(401).json({ message: 'Invalid or expired token' });
+//     }
+//   }
+
+//   function requireAdmin(req, res, next) {
+//     if (!req.user || req.user.role !== 'admin') {
+//       return res.status(403).json({ message: 'Admin access required' });
 //     }
 
-//     const token = jwt.sign(
-//       {
-//         id: row.id,
-//         role: row.role
-//       },
-//       SECRET
-//     );
+//     return next();
+//   }
 
-//     res.json({
-//       message: `Welcome ${row.username}`,
-//       token
-//     });
-//   });
-// });
-
-// module.exports = router;
-
+//   module.exports = {
+//     JWT_SECRET,
+//     authenticate,
+//     requireAdmin
+//   };
 
 const express = require('express');
   const router = express.Router();
