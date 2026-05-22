@@ -1,18 +1,22 @@
-const express = require('express');
-const router = express.Router();
 
-let comments = [];
+ const express = require('express');
+  const router = express.Router();
 
-// INTENTIONALLY VULNERABLE
-router.post('/comment', (req, res) => {
-  const { comment } = req.body;
+  let comments = [];
 
-  comments.push(comment);
+  router.post('/comment', (req, res) => {
+    const { comment } = req.body;
 
-  res.send(`
-    <h1>Comment Added</h1>
-    <div>${comment}</div>
-  `);
-});
+    if (typeof comment !== 'string' || comment.trim().length === 0) {
+      return res.status(400).json({ message: 'Comment is required' });
+    }
 
-module.exports = router;
+    comments.push(comment);
+
+    return res.status(201).json({
+      message: 'Comment added',
+      comment
+    });
+  });
+
+  module.exports = router;

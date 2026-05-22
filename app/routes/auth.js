@@ -1,42 +1,47 @@
+
 const express = require('express');
-const router = express.Router();
-const db = require('../db');
-const jwt = require('jsonwebtoken');
+  const router = express.Router();
+  const db = require('../db');
+  const jwt = require('jsonwebtoken');
+  const { JWT_SECRET } = require('../middleware/auth');
+  const { verifyPassword } = require('../security/passwords');
 
-const SECRET = 'supersecret';
+  // Login
+  router.post('/login', (req, res) => {
+    const { username, password } = req.body;
 
-// Login
-router.post('/login', (req, res) => {
-  const { username, password } = req.body;
-
-  const query = `
-    SELECT * FROM users
-    WHERE username = '${username}'
-    AND password = '${password}'
-  `;
-
-  db.get(query, [], (err, row) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
+    if (!username || !password) {
+      return res.status(400).json({ message: 'Username and password are required' });
     }
 
-    if (!row) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
+    db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
+      if (err) {
+        return res.status(500).json({ message: 'Unable to process login' });
+      }
 
-    const token = jwt.sign(
-      {
-        id: row.id,
-        role: row.role
-      },
-      SECRET
-    );
+      if (!row || !verifyPassword(password, row.password)) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
 
-    res.json({
-      message: `Welcome ${row.username}`,
-      token
+      const token = jwt.sign(
+        {
+          id: row.id,
+          username: row.username,
+          role: row.role
+        },
+        JWT_SECRET,
+        {
+          expiresIn: '15m',
+          issuer: 'ctf-api',
+          audience: 'ctf-client'
+        }
+      );
+
+      res.json({
+        message: `Welcome ${row.username}`,
+        token
+      });
     });
   });
-});
 
-module.exports = router;
+  module.exports = router;
