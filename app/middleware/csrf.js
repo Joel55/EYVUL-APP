@@ -1,35 +1,29 @@
-const { audit } = require('./audit-log');
+const { doubleCsrf } = require('csrf-csrf');
+const { csrfSecret } = require('../config');
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const isProd = process.env.NODE_ENV === 'production';
 
-function refererOrigin(referer) {
-  try {
-    return new URL(referer).origin;
-  } catch {
-    return null;
-  }
-}
+const {
+  invalidCsrfTokenError,
+  generateCsrfToken,
+  doubleCsrfProtection
+} = doubleCsrf({
+  getSecret: () => csrfSecret,
+  getSessionIdentifier: (req) => req.ip || 'anonymous',
+  cookieName: isProd ? '__Host-csrf-token' : 'csrf-token',
+  cookieOptions: {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: isProd,
+    path: '/'
+  },
+  size: 64,
+  ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
+  getCsrfTokenFromRequest: (req) => req.headers['x-csrf-token']
+});
 
-function verifyOrigin(req, res, next) {
-  if (SAFE_METHODS.has(req.method)) return next();
-
-  const allowed = process.env.ALLOWED_ORIGIN;
-  const origin = req.get('origin');
-  const referer = req.get('referer');
-
-  const effectiveOrigin = origin || (referer ? refererOrigin(referer) : null);
-
-  if (effectiveOrigin && effectiveOrigin === allowed) {
-    return next();
-  }
-
-  audit('csrf.blocked', {
-    method: req.method,
-    path: req.originalUrl,
-    origin: origin || null,
-    referer: referer || null
-  });
-  return res.status(403).json({ error: 'CSRF check failed' });
-}
-
-module.exports = verifyOrigin;
+module.exports = {
+  invalidCsrfTokenError,
+  generateCsrfToken,
+  doubleCsrfProtection
+};

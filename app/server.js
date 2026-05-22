@@ -8,12 +8,18 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 require('./db');
 const authRoutes = require('./routes/auth');
 const commentRoutes = require('./routes/comments');
 const userRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
-const verifyOrigin = require('./middleware/csrf');
+const {
+  invalidCsrfTokenError,
+  generateCsrfToken,
+  doubleCsrfProtection
+} = require('./middleware/csrf');
+const { audit } = require('./middleware/audit-log');
 
 const allowedOrigin = process.env.ALLOWED_ORIGIN;
 if (!allowedOrigin || allowedOrigin.trim() === '' || allowedOrigin.trim() === '*') {
@@ -29,11 +35,20 @@ app.use(helmet());
 app.use(cors({
   origin: allowedOrigin,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+  credentials: true
 }));
 
+app.use(cookieParser());
 app.use(bodyParser.json({ limit: '10kb' }));
-app.use(verifyOrigin);
+
+app.get('/api/csrf-token', (req, res) => {
+  const csrfToken = generateCsrfToken(req, res);
+  res.json({ csrfToken });
+});
+
+app.use(doubleCsrfProtection);
+
 app.use('/api', authRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', userRoutes);
@@ -47,6 +62,15 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  if (err === invalidCsrfTokenError || err && err.code === 'EBADCSRFTOKEN') {
+    audit('csrf.blocked', {
+      method: req.method,
+      path: req.originalUrl,
+      origin: req.get('origin') || null,
+      referer: req.get('referer') || null
+    });
+    return res.status(403).json({ error: 'CSRF check failed' });
+  }
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 });
