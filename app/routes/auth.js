@@ -1,3 +1,6 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../db');
 const jwt = require('jsonwebtoken');
 
 const SECRET = process.env.JWT_SECRET;
@@ -6,28 +9,49 @@ if (!SECRET) {
   throw new Error('JWT_SECRET is not defined');
 }
 
-function authMiddleware(req, res, next) {
-  const header = req.headers.authorization;
+// Login
+router.post('/login', (req, res) => {
+  const { username, password } = req.body;
 
-  if (!header || !header.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing token' });
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Missing credentials' });
   }
 
-  const token = header.split(' ')[1];
+  // 🔐 FIX: parameterized query prevents SQL injection
+  const query = `
+    SELECT id, username, role, password
+    FROM users
+    WHERE username = ?
+  `;
 
-  try {
-    const decoded = jwt.verify(token, SECRET);
-
-    // 🔐 FIX: enforce expected token shape
-    if (!decoded || typeof decoded.id !== 'number' || !decoded.role) {
-      return res.status(401).json({ error: 'Invalid token payload' });
+  db.get(query, [username], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: 'Internal server error' });
     }
 
-    req.user = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}
+    if (!row) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
-module.exports = authMiddleware;
+    // 🔐 password check (still simple for CTF, but safer structure)
+    if (row.password !== password) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      {
+        id: row.id,
+        role: row.role
+      },
+      SECRET,
+      { expiresIn: '1h' } // 🔐 good practice + reduces token abuse
+    );
+
+    res.json({
+      message: `Welcome ${row.username}`,
+      token
+    });
+  });
+});
+
+module.exports = router;
