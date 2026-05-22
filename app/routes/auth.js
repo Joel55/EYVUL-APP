@@ -6,6 +6,9 @@ const bcrypt = require('bcrypt');
 const Joi = require('joi');
 const { jwtSecret } = require('../config');
 const { authLimiter } = require('../middleware/rate-limit');
+const { audit } = require('../middleware/audit-log');
+
+const DUMMY_HASH = bcrypt.hashSync('not-a-real-password-placeholder', 12);
 
 const loginSchema = Joi.object({
   username: Joi.string().alphanum().min(3).max(30).required(),
@@ -20,18 +23,29 @@ router.post('/login', authLimiter, (req, res) => {
 
   const query = `SELECT * FROM users WHERE username = ?`;
   db.get(query, [username], async (err, row) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
 
-    if (!row) return res.status(401).json({ message: 'Invalid credentials' });
+    const hashToCompare = row ? row.password : DUMMY_HASH;
+    const match = await bcrypt.compare(password, hashToCompare);
 
-    const match = await bcrypt.compare(password, row.password);
-    if (!match) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!row || !match) {
+      audit('auth.login.failure', {
+        username,
+        reason: !row ? 'unknown_user' : 'bad_password'
+      });
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
     const token = jwt.sign(
       { id: row.id, role: row.role },
       jwtSecret,
       { expiresIn: '15m' }
     );
+
+    audit('auth.login.success', { userId: row.id, role: row.role });
 
     res.json({
       message: `Welcome ${row.username}`,

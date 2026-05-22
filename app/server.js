@@ -16,6 +16,8 @@ if (!allowedOrigin || allowedOrigin.trim() === '' || allowedOrigin.trim() === '*
 
 const app = express();
 
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 0);
+
 app.use(helmet());
 
 app.use(cors({
@@ -31,6 +33,10 @@ app.use('/api', userRoutes);
 app.use('/api', adminRoutes);
 app.get('/', (req, res) => {
   res.send('Secure Coding CTF Platform');
+});
+
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
 });
 
 app.use((err, req, res, next) => {

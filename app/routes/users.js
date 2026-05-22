@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const authenticate = require('../middleware/auth');
+const { audit } = require('../middleware/audit-log');
 
 router.get('/user/:id', authenticate, (req, res) => {
   const id = Number(req.params.id);
@@ -11,6 +12,11 @@ router.get('/user/:id', authenticate, (req, res) => {
   }
 
   if (req.user.role !== 'admin' && req.user.id !== id) {
+    audit('authz.forbidden', {
+      userId: req.user.id,
+      targetId: id,
+      path: req.originalUrl
+    });
     return res.status(403).json({ error: 'Forbidden' });
   }
 

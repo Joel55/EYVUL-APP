@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config');
+const { audit } = require('./audit-log');
 
 function authenticate(req, res, next) {
   const header = req.get('authorization');
@@ -15,15 +16,17 @@ function authenticate(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(token, jwtSecret);
+    const payload = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] });
 
     if (!Number.isInteger(payload.id) || !['admin', 'user'].includes(payload.role)) {
+      audit('auth.token.invalid', { reason: 'bad_payload' });
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
 
     req.user = payload;
     return next();
   } catch (err) {
+    audit('auth.token.invalid', { reason: err.name || 'verify_failed' });
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
