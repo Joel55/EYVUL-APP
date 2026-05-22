@@ -9,6 +9,8 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const { sessionSecret } = require('./config');
 require('./db');
 const authRoutes = require('./routes/auth');
 const commentRoutes = require('./routes/comments');
@@ -19,7 +21,6 @@ const {
   generateCsrfToken,
   doubleCsrfProtection
 } = require('./middleware/csrf');
-const ensureSessionId = require('./middleware/session-id');
 const { audit } = require('./middleware/audit-log');
 
 const allowedOrigin = process.env.ALLOWED_ORIGIN;
@@ -41,7 +42,20 @@ app.use(cors({
 }));
 
 app.use(cookieParser());
-app.use(ensureSessionId);
+
+app.use(session({
+  name: 'app.sid',
+  secret: sessionSecret,
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/'
+  }
+}));
+
 app.use(bodyParser.json({ limit: '10kb' }));
 
 app.get('/api/csrf-token', (req, res) => {

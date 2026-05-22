@@ -9,7 +9,7 @@ const {
   doubleCsrfProtection
 } = doubleCsrf({
   getSecret: () => csrfSecret,
-  getSessionIdentifier: (req) => req.sessionId,
+  getSessionIdentifier: (req) => req.sessionID,
   cookieName: isProd ? '__Host-csrf-token' : 'csrf-token',
   cookieOptions: {
     httpOnly: true,
