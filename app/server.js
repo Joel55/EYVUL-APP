@@ -13,6 +13,7 @@ const authRoutes = require('./routes/auth');
 const commentRoutes = require('./routes/comments');
 const userRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
+const verifyOrigin = require('./middleware/csrf');
 
 const allowedOrigin = process.env.ALLOWED_ORIGIN;
 if (!allowedOrigin || allowedOrigin.trim() === '' || allowedOrigin.trim() === '*') {
@@ -32,6 +33,7 @@ app.use(cors({
 }));
 
 app.use(bodyParser.json({ limit: '10kb' }));
+app.use(verifyOrigin);
 app.use('/api', authRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', userRoutes);
