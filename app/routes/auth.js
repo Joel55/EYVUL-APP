@@ -5,13 +5,14 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const Joi = require('joi');
 const { jwtSecret } = require('../config');
+const { authLimiter } = require('../middleware/rate-limit');
 
 const loginSchema = Joi.object({
   username: Joi.string().alphanum().min(3).max(30).required(),
   password: Joi.string().min(8).max(128).required()
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', authLimiter, (req, res) => {
   const { error, value } = loginSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
@@ -29,7 +30,7 @@ router.post('/login', (req, res) => {
     const token = jwt.sign(
       { id: row.id, role: row.role },
       jwtSecret,
-      { expiresIn: '1h' }
+      { expiresIn: '15m' }
     );
 
     res.json({

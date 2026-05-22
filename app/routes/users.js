@@ -19,7 +19,8 @@ router.get('/user/:id', authenticate, (req, res) => {
     [id],
     (err, row) => {
       if (err) {
-        return res.status(500).json({ error: err.message });
+        console.error(err);
+        return res.status(500).json({ error: 'Internal server error' });
       }
 
       if (!row) {
