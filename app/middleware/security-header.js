@@ -14,18 +14,7 @@
  
   module.exports = securityHeaders;
  
-  app/middleware/errorHandler.js
+
  
-  function notFound(req, res) {
-    return res.status(404).json({ message: 'Not found' });
-  }
  
-  function errorHandler(err, req, res, next) {
-    if (res.headersSent) return next(err);
  
-    return res.status(err.status || 500).json({
-      message: err.publicMessage || 'Internal server error'
-    });
-  }
- 
-  module.exports = { notFound, errorHandler };
