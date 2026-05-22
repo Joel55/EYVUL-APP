@@ -4,9 +4,7 @@ const bcrypt = require('bcrypt');
 
 const db = new sqlite3.Database('./ctf.db');
 
-// Initialize DB safely
 db.serialize(async () => {
-  // Create users table with constraints
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,7 +15,6 @@ db.serialize(async () => {
     )
   `);
 
-  // Check if admin already exists before inserting
   db.get(`SELECT * FROM users WHERE username = ?`, ['admin'], async (err, row) => {
     if (err) {
       console.error('DB error:', err);
@@ -25,7 +22,7 @@ db.serialize(async () => {
     }
 
     if (!row) {
-      // Hash passwords before inserting
+      // hash passwords before inserting
       const adminPassword = await bcrypt.hash('admin123', 12);
       const userPassword = await bcrypt.hash('password123', 12);
 
