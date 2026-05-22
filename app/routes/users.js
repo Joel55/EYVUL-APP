@@ -4,22 +4,37 @@ require('dotenv').config();
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const authMiddleware = require('./auth');
 
-// INTENTIONALLY VULNERABLE
-router.get('/user/:id', (req, res) => {
-  const id = req.params.id;
+/**
+ * FIXED IDOR ROUTE (HARDENED)
+ */
+router.get('/user/:id', authMiddleware, (req, res) => {
+  const userId = parseInt(req.params.id, 10);
 
-  db.get(
-    `SELECT id, username, email FROM users WHERE id = ${id}`,
-    [],
-    (err, row) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
+  // 🔐 strict validation
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'Invalid user ID' });
+  }
 
-      res.json(row);
+  const query = `
+    SELECT id, username
+    FROM users
+    WHERE id = ?
+  `;
+
+  db.get(query, [userId], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  );
+
+    if (!row) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    return res.json(row);
+  });
 });
+
 
   module.exports = router;
