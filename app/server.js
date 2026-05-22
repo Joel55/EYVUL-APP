@@ -11,6 +11,7 @@ require('dotenv').config();
     const userRoutes = require('./routes/users');
     const adminRoutes = require('./routes/admin');
     const securityHeaders = require('./middleware/security-header');
+    const createCsrfProtection = require('./middleware/csrf');
  
     const app = express();
     const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -25,9 +26,11 @@ require('dotenv').config();
         }
  
         return callback(new Error('Origin not allowed by CORS'));
-      }
+      },
+      credentials: false
     }));
     app.use(securityHeaders);
+    app.use(createCsrfProtection());
     app.use(bodyParser.json({ limit: '100kb' }));
  
     app.use('/api', authRoutes);
