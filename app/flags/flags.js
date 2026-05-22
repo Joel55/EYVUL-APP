@@ -1,6 +1,11 @@
 module.exports = {
-  SQLI_FLAG: 'FLAG{sqli_fix_verified_2026}',
-  XSS_FLAG: 'FLAG{xss_fix_verified_2026}',
-  IDOR_FLAG: 'FLAG{idor_fix_verified_2026}',
-  MASS_ASSIGNMENT_FLAG: 'FLAG{mass_assignment_fix_verified_2026}'
+
+  SQLI_FLAG: process.env.SQLI_FLAG,
+
+  XSS_FLAG: process.env.XSS_FLAG,
+
+  IDOR_FLAG: process.env.IDOR_FLAG,
+
+  MASS_ASSIGNMENT_FLAG: process.env.MASS_ASSIGNMENT_FLAG
+
 };

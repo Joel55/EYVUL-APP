@@ -1,29 +1,44 @@
-
 const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcrypt');
 
 const db = new sqlite3.Database('./ctf.db');
 
-// Create users table
-
-db.serialize(() => {
+// Initialize DB safely
+db.serialize(async () => {
+  // Create users table with constraints
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT,
-      password TEXT,
-      role TEXT,
-      email TEXT
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT CHECK(role IN ('admin','user')) NOT NULL DEFAULT 'user',
+      email TEXT UNIQUE NOT NULL
     )
   `);
 
-  db.run(`DELETE FROM users`);
+  // Check if admin already exists before inserting
+  db.get(`SELECT * FROM users WHERE username = ?`, ['admin'], async (err, row) => {
+    if (err) {
+      console.error('DB error:', err);
+      return;
+    }
 
-  db.run(`
-    INSERT INTO users (username, password, role, email)
-    VALUES
-    ('admin', 'admin123', 'admin', 'admin@corp.local'),
-    ('user1', 'password123', 'user', 'user1@corp.local')
-  `);
+    if (!row) {
+      // Hash passwords before inserting
+      const adminPassword = await bcrypt.hash('admin123', 12);
+      const userPassword = await bcrypt.hash('password123', 12);
+
+      db.run(`
+        INSERT INTO users (username, password, role, email)
+        VALUES
+        (?, ?, 'admin', ?),
+        (?, ?, 'user', ?)
+      `, ['admin', adminPassword, 'admin@corp.local', 'user1', userPassword, 'user1@corp.local'], (err) => {
+        if (err) console.error('Error inserting users:', err);
+        else console.log('Default users created.');
+      });
+    }
+  });
 });
 
 module.exports = db;
