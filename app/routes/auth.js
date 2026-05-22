@@ -1,42 +1,33 @@
-const express = require('express');
-const router = express.Router();
-const db = require('../db');
 const jwt = require('jsonwebtoken');
 
-const SECRET = 'supersecret';
+const SECRET = process.env.JWT_SECRET;
 
-// Login
-router.post('/login', (req, res) => {
-  const { username, password } = req.body;
+if (!SECRET) {
+  throw new Error('JWT_SECRET is not defined');
+}
 
-  const query = `
-    SELECT * FROM users
-    WHERE username = '${username}'
-    AND password = '${password}'
-  `;
+function authMiddleware(req, res, next) {
+  const header = req.headers.authorization;
 
-  db.get(query, [], (err, row) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
+  if (!header || !header.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing token' });
+  }
+
+  const token = header.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, SECRET);
+
+    // 🔐 FIX: enforce expected token shape
+    if (!decoded || typeof decoded.id !== 'number' || !decoded.role) {
+      return res.status(401).json({ error: 'Invalid token payload' });
     }
 
-    if (!row) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}
 
-    const token = jwt.sign(
-      {
-        id: row.id,
-        role: row.role
-      },
-      SECRET
-    );
-
-    res.json({
-      message: `Welcome ${row.username}`,
-      token
-    });
-  });
-});
-
-module.exports = router;
+module.exports = authMiddleware;

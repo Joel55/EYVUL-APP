@@ -11,8 +11,11 @@ router.get('/user/:id', auth, (req, res) => {
     return res.status(400).json({ error: 'Invalid user ID' });
   }
 
-  // 🔐 IDOR FIX: enforce ownership or admin role
-  if (req.user.role !== 'admin' && req.user.id !== userId) {
+  const requesterId = Number(req.user.id);
+  const isAdmin = req.user.role === 'admin';
+
+  // 🔐 IDOR FIX
+  if (!isAdmin && requesterId !== userId) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
