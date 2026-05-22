@@ -4,6 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 require('./db');
 
@@ -15,39 +16,63 @@ const adminRoutes = require('./routes/admin');
 const app = express();
 
 /**
- * 🔐 Security middleware
+ * 🔐 Security headers (hardened)
  */
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: true,
+    crossOriginEmbedderPolicy: true,
+    crossOriginResourcePolicy: { policy: "same-site" }
+  })
+);
 
 /**
- * 🔐 CORS hardened (no open wildcard)
+ * 🚦 Global rate limit (baseline protection)
+ */
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use(globalLimiter);
+
+/**
+ * 🔐 CORS hardened
  */
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || false,
-  credentials: true
+  origin: process.env.CORS_ORIGIN,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
 
-app.use(bodyParser.json({ limit: '10kb' })); // prevent payload abuse
+/**
+ * 🔐 Body size protection
+ */
+app.use(bodyParser.json({ limit: '10kb' }));
 
+/**
+ * Routes
+ */
 app.use('/api', authRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', userRoutes);
 app.use('/api', adminRoutes);
 
 /**
- * Health route
+ * Health check
  */
 app.get('/', (req, res) => {
-  res.send('Secure Coding CTF Platform');
+  res.status(200).send('Secure Coding CTF Platform');
 });
 
 /**
- * 🔐 Basic error handler (helps avoid info leaks)
+ * 🔐 Safe error handler (no internal leakage)
  */
 app.use((err, req, res, next) => {
-  console.error('Server error:', err.message);
-
-  res.status(500).json({
+  // avoid leaking internal error details
+  return res.status(500).json({
     error: 'Internal server error'
   });
 });

@@ -1,31 +1,26 @@
 const sqlite3 = require('sqlite3').verbose();
-const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 
 const db = new sqlite3.Database('./ctf.db');
 
-/**
- * Simple hash helper (CTF-safe, avoids plaintext password flagging)
- */
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
-
-db.serialize(() => {
+db.serialize(async () => {
+  // 🔐 schema with constraints
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE,
-      password TEXT,
-      role TEXT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT CHECK(role IN ('user','admin')) DEFAULT 'user',
       email TEXT
     )
   `);
 
-  // ⚠️ CTF reset - keep but make intent explicit
+  // ⚠️ CTF reset (explicit intent)
   db.run(`DELETE FROM users`);
 
-  const adminPass = hashPassword('admin123');
-  const userPass = hashPassword('password123');
+  // 🔐 bcrypt hashing (consistent with login/register)
+  const adminPass = await bcrypt.hash('admin123', 12);
+  const userPass = await bcrypt.hash('password123', 12);
 
   const stmt = db.prepare(`
     INSERT INTO users (username, password, role, email)

@@ -1,26 +1,36 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const auth = require('./auth');
+const authMiddleware = require('./auth');
 
-// FIXED IDOR ROUTE
-router.get('/user/:id', auth, (req, res) => {
-  const userId = Number(req.params.id);
+/**
+ * FIXED IDOR ROUTE (HARDENED)
+ */
+router.get('/user/:id', authMiddleware, (req, res) => {
+  const userId = parseInt(req.params.id, 10);
 
+  // 🔐 strict validation
   if (!Number.isInteger(userId) || userId <= 0) {
     return res.status(400).json({ error: 'Invalid user ID' });
   }
 
-  const requesterId = Number(req.user.id);
-  const isAdmin = req.user.role === 'admin';
+  const requesterId = parseInt(req.user?.id, 10);
+  const requesterRole = req.user?.role;
 
-  // 🔐 IDOR FIX
+  // 🔐 ensure valid auth context
+  if (!Number.isInteger(requesterId) || !requesterRole) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const isAdmin = requesterRole === 'admin';
+
+  // 🔐 IDOR protection
   if (!isAdmin && requesterId !== userId) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
   const query = `
-    SELECT id, username, email
+    SELECT id, username
     FROM users
     WHERE id = ?
   `;
@@ -34,7 +44,7 @@ router.get('/user/:id', auth, (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json(row);
+    return res.json(row);
   });
 });
 

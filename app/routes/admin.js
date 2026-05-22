@@ -1,10 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const rateLimit = require('express-rate-limit');
 
 /**
- * Admin guard
+ * 🚦 Rate limiting (protect admin endpoint from abuse)
+ */
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 requests per window
+  message: {
+    error: 'Too many registration attempts, please try again later'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+/**
+ * 🔐 Admin guard
  */
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
@@ -14,50 +28,91 @@ function requireAdmin(req, res, next) {
 }
 
 /**
- * 🔐 Password hashing (must match login route)
+ * ✅ Validation helpers
  */
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
+function isValidUsername(username) {
+  return (
+    typeof username === 'string' &&
+    /^[a-zA-Z0-9_]{3,30}$/.test(username)
+  );
 }
 
-// Admin Register (SECURED)
-router.post('/register', requireAdmin, (req, res) => {
+function isValidPassword(password) {
+  return (
+    typeof password === 'string' &&
+    password.length >= 8 &&
+    password.length <= 72
+  );
+}
+
+function isValidEmail(email) {
+  return (
+    typeof email === 'string' &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  );
+}
+
+/**
+ * 🔐 Admin Register (SECURED)
+ */
+router.post('/register', registerLimiter, requireAdmin, async (req, res) => {
   const { username, password, email } = req.body;
 
-  // 🔐 input validation
+  // 🔐 Strong validation
   if (
-    typeof username !== 'string' ||
-    typeof password !== 'string' ||
-    !username.trim() ||
-    !password.trim()
+    !isValidUsername(username) ||
+    !isValidPassword(password)
   ) {
-    return res.status(400).json({ error: 'Missing or invalid fields' });
+    return res.status(400).json({ error: 'Invalid username or password format' });
   }
 
-  const hashedPassword = hashPassword(password);
+  if (email && !isValidEmail(email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
 
-  const query = `
-    INSERT INTO users (username, password, role, email)
-    VALUES (?, ?, ?, ?)
-  `;
+  try {
+    const normalizedUsername = username.trim().toLowerCase();
 
-  const params = [
-    username.trim(),
-    hashedPassword,
-    'user', // 🔐 FIX: prevent privilege escalation (no mass assignment)
-    email || null
-  ];
+    // 🔐 Check if user exists
+    db.get(
+      `SELECT id FROM users WHERE username = ?`,
+      [normalizedUsername],
+      async (err, existing) => {
+        if (err) {
+          return res.status(500).json({ error: 'Internal server error' });
+        }
 
-  db.run(query, params, function (err) {
-    if (err) {
-      return res.status(500).json({ error: 'Internal server error' });
-    }
+        if (existing) {
+          return res.status(409).json({ error: 'User already exists' });
+        }
 
-    return res.json({
-      message: 'User created successfully',
-      userId: this.lastID
-    });
-  });
+        // 🔐 bcrypt hashing (secure password storage)
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        const query = `
+          INSERT INTO users (username, password, role, email)
+          VALUES (?, ?, ?, ?)
+        `;
+
+        db.run(
+          query,
+          [normalizedUsername, hashedPassword, 'user', email || null],
+          function (err) {
+            if (err) {
+              return res.status(500).json({ error: 'Internal server error' });
+            }
+
+            return res.json({
+              message: 'User created successfully',
+              userId: this.lastID
+            });
+          }
+        );
+      }
+    );
+  } catch (err) {
+    return res.status(500).json({ error: 'Server error' });
+  }
 });
 
 module.exports = router;

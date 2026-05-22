@@ -1,30 +1,44 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
+const escapeHtml = require('escape-html');
 
-let comments = [];
+/**
+ * 🚦 Rate limit to prevent spam / abuse
+ */
+const commentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: 'Too many comments, slow down' }
+});
 
-// simple HTML escaping function
-function escapeHtml(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+/**
+ * In-memory store (CTF-safe)
+ */
+const comments = [];
 
-// FIXED XSS
-router.post('/comment', (req, res) => {
-  const { comment } = req.body;
+// FIXED XSS + hardened version
+router.post('/comment', commentLimiter, (req, res) => {
+  let { comment } = req.body;
 
-  if (!comment || typeof comment !== 'string') {
+  // 🔐 validation
+  if (
+    typeof comment !== 'string' ||
+    comment.trim().length === 0
+  ) {
     return res.status(400).send('Invalid comment');
   }
 
-  const safeComment = escapeHtml(comment);
+  // 🔐 prevent DoS via huge payloads
+  if (comment.length > 500) {
+    return res.status(400).send('Comment too long');
+  }
+
+  const safeComment = escapeHtml(comment.trim());
+
   comments.push(safeComment);
 
-  res.send(`
+  return res.send(`
     <h1>Comment Added</h1>
     <div>${safeComment}</div>
   `);

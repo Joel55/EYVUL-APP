@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 
 const SECRET = process.env.JWT_SECRET;
 
@@ -11,14 +12,36 @@ if (!SECRET) {
 }
 
 /**
- * 🔐 Hash helper (CTF-safe, deterministic)
+ * 🚦 Rate limit login attempts (brute-force protection)
+ */
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many login attempts, try again later' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+/**
+ * 🔐 Hash helper
  */
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-// Login
-router.post('/login', (req, res) => {
+/**
+ * 🔐 Constant-time comparison
+ */
+function safeCompare(a, b) {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+
+  if (bufA.length !== bufB.length) return false;
+
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+router.post('/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;
 
   // 🔐 input validation
@@ -33,31 +56,30 @@ router.post('/login', (req, res) => {
 
   const hashedPassword = hashPassword(password);
 
-  // 🔐 parameterized query (SQL injection safe)
   const query = `
     SELECT id, username, role, password
     FROM users
     WHERE username = ?
   `;
 
-  db.get(query, [username], (err, row) => {
+  db.get(query, [username.trim().toLowerCase()], (err, row) => {
     if (err) {
       return res.status(500).json({ error: 'Internal server error' });
     }
 
-    // 🔐 prevent user enumeration timing differences
+    // uniform response (prevents enumeration)
     if (!row) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // 🔐 secure password comparison (hashed)
-    const isValidPassword = row.password === hashedPassword;
+    // 🔐 secure comparison
+    const isValidPassword = safeCompare(row.password, hashedPassword);
 
     if (!isValidPassword) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // 🔐 JWT with expiration + clean payload
+    // 🔐 stronger JWT claims
     const token = jwt.sign(
       {
         id: Number(row.id),
@@ -66,7 +88,9 @@ router.post('/login', (req, res) => {
       SECRET,
       {
         expiresIn: '1h',
-        issuer: 'ctf-platform'
+        issuer: 'ctf-platform',
+        audience: 'ctf-users',
+        notBefore: '0s'
       }
     );
 
